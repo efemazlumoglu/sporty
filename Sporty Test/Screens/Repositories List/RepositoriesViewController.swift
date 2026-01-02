@@ -56,6 +56,15 @@ final class RepositoriesViewController: UITableViewController {
         )
         
         tableView.register(RepositoryTableViewCell.self, forCellReuseIdentifier: "RepositoryCell")
+        
+        refreshControl = UIRefreshControl()
+        refreshControl?.addTarget(self, action: #selector(handleRefresh), for: .valueChanged)
+    }
+    
+    @objc private func handleRefresh() {
+        Task {
+            await viewModel.loadRepositories()
+        }
     }
     
     private func bindViewModel() {
@@ -79,8 +88,10 @@ final class RepositoriesViewController: UITableViewController {
         case .idle, .loading:
             break
         case .loaded:
+            refreshControl?.endRefreshing()
             tableView.reloadData()
         case .error(let message):
+            refreshControl?.endRefreshing()
             tableView.reloadData()
             showError(message)
         }
