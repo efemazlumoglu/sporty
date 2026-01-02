@@ -4,9 +4,14 @@ import MockLiveServer
 import SwiftUI
 import UIKit
 
-/// A view controller that displays a list of GitHub repositories for the "swiftlang" organization.
+protocol RepositoriesViewControllerDelegate: AnyObject {
+    func repositoriesViewControllerDidRequestSettings(_ controller: RepositoriesViewController)
+}
+
 final class RepositoriesViewController: UITableViewController {
-    private let gitHubAPI: GitHubAPI
+    weak var delegate: RepositoriesViewControllerDelegate?
+    
+    private var gitHubAPI: GitHubAPI
     private let mockLiveServer: MockLiveServer
     private var repositories: [GitHubMinimalRepository] = []
 
@@ -27,6 +32,13 @@ final class RepositoriesViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "gearshape"),
+            style: .plain,
+            target: self,
+            action: #selector(settingsTapped)
+        )
+        
         tableView.register(RepositoryTableViewCell.self, forCellReuseIdentifier: "RepositoryCell")
 
         Task {
@@ -61,14 +73,24 @@ final class RepositoriesViewController: UITableViewController {
         )
         show(viewController, sender: self)
     }
+    
+    func updateGitHubAPI(_ api: GitHubAPI) {
+        self.gitHubAPI = api
+        Task {
+            await loadRepositories()
+        }
+    }
 
     private func loadRepositories() async {
         do {
-            let api = GitHubAPI()
-            repositories = try await api.repositoriesForOrganisation("swiftlang")
+            repositories = try await gitHubAPI.repositoriesForOrganisation("swiftlang")
             tableView.reloadData()
         } catch {
             print("Error loading repositories: \(error)")
         }
+    }
+    
+    @objc private func settingsTapped() {
+        delegate?.repositoriesViewControllerDidRequestSettings(self)
     }
 }
