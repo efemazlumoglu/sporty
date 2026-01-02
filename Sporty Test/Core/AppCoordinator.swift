@@ -29,6 +29,24 @@ final class AppCoordinator {
         window.makeKeyAndVisible()
     }
     
+    func handleDeepLink(_ url: URL) {
+        guard url.scheme == "sporty",
+              url.host == "repo" else {
+            return
+        }
+        
+        let fullName = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !fullName.isEmpty else { return }
+        
+        navigationController?.popToRootViewController(animated: false)
+        
+        let viewController = RepositoryViewController(
+            fullName: fullName,
+            gitHubAPI: makeGitHubAPI()
+        )
+        navigationController?.pushViewController(viewController, animated: true)
+    }
+    
     private func makeGitHubAPI() -> GitHubAPI {
         GitHubAPI(authorisationToken: TokenStorage.shared.token)
     }

@@ -2,18 +2,29 @@ import GitHubAPI
 import SwiftUI
 import UIKit
 
-/// A view controller that displays the details of a GitHub repository.
 final class RepositoryViewController: UIViewController {
-    private let minimalRepository: GitHubMinimalRepository
+    private let fullName: String
+    private let minimalRepository: GitHubMinimalRepository?
     private let gitHubAPI: GitHubAPI
 
     init(minimalRepository: GitHubMinimalRepository, gitHubAPI: GitHubAPI) {
         self.minimalRepository = minimalRepository
+        self.fullName = minimalRepository.fullName
         self.gitHubAPI = gitHubAPI
 
         super.init(nibName: nil, bundle: nil)
 
         title = minimalRepository.name
+    }
+    
+    init(fullName: String, gitHubAPI: GitHubAPI) {
+        self.minimalRepository = nil
+        self.fullName = fullName
+        self.gitHubAPI = gitHubAPI
+        
+        super.init(nibName: nil, bundle: nil)
+        
+        title = fullName.components(separatedBy: "/").last ?? fullName
     }
 
     @available(*, unavailable)
@@ -25,7 +36,11 @@ final class RepositoryViewController: UIViewController {
         super.viewDidLoad()
 
         let hostingViewController = UIHostingController(
-            rootView: RepositoryView(minimalRepository: minimalRepository, gitHubAPI: gitHubAPI)
+            rootView: RepositoryView(
+                fullName: fullName,
+                minimalRepository: minimalRepository,
+                gitHubAPI: gitHubAPI
+            )
         )
         addChild(hostingViewController)
         view.addSubview(hostingViewController.view)
@@ -40,52 +55,100 @@ final class RepositoryViewController: UIViewController {
     }
 }
 
-/// A view displaying the details of a GitHub repository.
 private struct RepositoryView: View {
-    let minimalRepository: GitHubMinimalRepository
+    let fullName: String
+    let minimalRepository: GitHubMinimalRepository?
     let gitHubAPI: GitHubAPI
 
     @State private var fullRepository: GitHubFullRepository?
+    @State private var error: String?
 
     var body: some View {
-        List {
-            Group {
-                RepositoryValueView(key: "Name") {
-                    Text(minimalRepository.name)
-                        .foregroundColor(.secondary)
-                }
-
-                RepositoryValueView(key: "Description") {
-                    if let description = minimalRepository.description {
-                        Text(description)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("No description")
-                            .foregroundColor(.secondary)
-                            .italic()
-                    }
-                }
-
-                RepositoryValueView(key: "Stars") {
-                    Text("\(minimalRepository.stargazersCount)")
-                        .foregroundColor(.secondary)
-                }
-
-                RepositoryValueView(key: "Forks") {
-                    if let fullRepository {
-                        Text("\(fullRepository.networkCount)")
-                            .foregroundColor(.secondary)
-                    } else {
-                        ProgressView()
-                    }
-                }
+        Group {
+            if let error {
+                ContentUnavailableView(
+                    "Repository Not Found",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(error)
+                )
+            } else if let fullRepository {
+                repositoryContent(fullRepository)
+            } else if let minimalRepository {
+                minimalContent(minimalRepository)
+            } else {
+                ProgressView("Loading...")
             }
         }
         .task {
-            do  {
-                fullRepository = try await gitHubAPI.repository(minimalRepository.fullName)
-            } catch {
-                print("Error loading full repository: \(error)")
+            await loadRepository()
+        }
+    }
+    
+    private func repositoryContent(_ repo: GitHubFullRepository) -> some View {
+        List {
+            RepositoryValueView(key: "Name") {
+                Text(repo.name)
+                    .foregroundColor(.secondary)
+            }
+
+            RepositoryValueView(key: "Description") {
+                if let description = repo.description {
+                    Text(description)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("No description")
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+            }
+
+            RepositoryValueView(key: "Stars") {
+                Text("\(repo.stargazersCount)")
+                    .foregroundColor(.secondary)
+            }
+
+            RepositoryValueView(key: "Forks") {
+                Text("\(repo.networkCount)")
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    private func minimalContent(_ repo: GitHubMinimalRepository) -> some View {
+        List {
+            RepositoryValueView(key: "Name") {
+                Text(repo.name)
+                    .foregroundColor(.secondary)
+            }
+
+            RepositoryValueView(key: "Description") {
+                if let description = repo.description {
+                    Text(description)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("No description")
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+            }
+
+            RepositoryValueView(key: "Stars") {
+                Text("\(repo.stargazersCount)")
+                    .foregroundColor(.secondary)
+            }
+
+            RepositoryValueView(key: "Forks") {
+                ProgressView()
+            }
+        }
+    }
+    
+    private func loadRepository() async {
+        do {
+            fullRepository = try await gitHubAPI.repository(fullName)
+        } catch {
+            if minimalRepository == nil {
+                self.error = "Could not load \"\(fullName)\""
             }
         }
     }
