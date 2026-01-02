@@ -5,7 +5,7 @@ import UIKit
 
 protocol RepositoriesViewControllerDelegate: AnyObject {
     func repositoriesViewControllerDidRequestSettings(_ controller: RepositoriesViewController)
-    func repositoriesViewController(_ controller: RepositoriesViewController, didSelect repository: GitHubMinimalRepository)
+    func repositoriesViewController(_ controller: RepositoriesViewController, didSelect repository: GitHubMinimalRepository, currentStarCount: Int)
 }
 
 final class RepositoriesViewController: UITableViewController {
@@ -81,6 +81,23 @@ final class RepositoriesViewController: UITableViewController {
                 self?.handleStateChange(state)
             }
             .store(in: &cancellables)
+        
+        viewModel.$starCounts
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateVisibleCells()
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func updateVisibleCells() {
+        for indexPath in tableView.indexPathsForVisibleRows ?? [] {
+            guard let cell = tableView.cellForRow(at: indexPath) as? RepositoryTableViewCell,
+                  let repository = viewModel.repository(at: indexPath.row) else {
+                continue
+            }
+            cell.starCountText = viewModel.starCount(for: repository).formatted()
+        }
     }
     
     private func handleStateChange(_ state: RepositoriesViewModel.State) {
@@ -127,7 +144,7 @@ final class RepositoriesViewController: UITableViewController {
         if let repository = viewModel.repository(at: indexPath.row) {
             cell.name = repository.name
             cell.descriptionText = repository.description
-            cell.starCountText = repository.stargazersCount.formatted()
+            cell.starCountText = viewModel.starCount(for: repository).formatted()
         }
         
         return cell
@@ -137,7 +154,8 @@ final class RepositoriesViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         guard let repository = viewModel.repository(at: indexPath.row) else { return }
-        delegate?.repositoriesViewController(self, didSelect: repository)
+        let currentStarCount = viewModel.starCount(for: repository)
+        delegate?.repositoriesViewController(self, didSelect: repository, currentStarCount: currentStarCount)
     }
 }
 

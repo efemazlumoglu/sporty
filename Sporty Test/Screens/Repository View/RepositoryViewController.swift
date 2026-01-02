@@ -5,10 +5,12 @@ import UIKit
 final class RepositoryViewController: UIViewController {
     private let fullName: String
     private let minimalRepository: GitHubMinimalRepository?
+    private let currentStarCount: Int?
     private let gitHubAPI: GitHubAPI
 
-    init(minimalRepository: GitHubMinimalRepository, gitHubAPI: GitHubAPI) {
+    init(minimalRepository: GitHubMinimalRepository, currentStarCount: Int, gitHubAPI: GitHubAPI) {
         self.minimalRepository = minimalRepository
+        self.currentStarCount = currentStarCount
         self.fullName = minimalRepository.fullName
         self.gitHubAPI = gitHubAPI
 
@@ -19,6 +21,7 @@ final class RepositoryViewController: UIViewController {
     
     init(fullName: String, gitHubAPI: GitHubAPI) {
         self.minimalRepository = nil
+        self.currentStarCount = nil
         self.fullName = fullName
         self.gitHubAPI = gitHubAPI
         
@@ -39,6 +42,7 @@ final class RepositoryViewController: UIViewController {
             rootView: RepositoryView(
                 fullName: fullName,
                 minimalRepository: minimalRepository,
+                currentStarCount: currentStarCount,
                 gitHubAPI: gitHubAPI
             )
         )
@@ -58,6 +62,7 @@ final class RepositoryViewController: UIViewController {
 private struct RepositoryView: View {
     let fullName: String
     let minimalRepository: GitHubMinimalRepository?
+    let currentStarCount: Int?
     let gitHubAPI: GitHubAPI
 
     @State private var fullRepository: GitHubFullRepository?
@@ -103,7 +108,7 @@ private struct RepositoryView: View {
             }
 
             RepositoryValueView(key: "Stars") {
-                Text("\(repo.stargazersCount)")
+                Text("\(currentStarCount ?? repo.stargazersCount)")
                     .foregroundColor(.secondary)
             }
 
@@ -133,7 +138,7 @@ private struct RepositoryView: View {
             }
 
             RepositoryValueView(key: "Stars") {
-                Text("\(repo.stargazersCount)")
+                Text("\(currentStarCount ?? repo.stargazersCount)")
                     .foregroundColor(.secondary)
             }
 

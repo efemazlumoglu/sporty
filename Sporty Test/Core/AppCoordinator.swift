@@ -16,7 +16,7 @@ final class AppCoordinator {
     }
 
     func start() {
-        let viewModel = RepositoriesViewModel(gitHubAPI: makeGitHubAPI())
+        let viewModel = RepositoriesViewModel(gitHubAPI: makeGitHubAPI(), mockLiveServer: mockLiveServer)
         repositoriesViewModel = viewModel
         
         let repositoriesVC = RepositoriesViewController(viewModel: viewModel)
@@ -60,9 +60,10 @@ extension AppCoordinator: RepositoriesViewControllerDelegate {
         navigationController?.present(nav, animated: true)
     }
     
-    func repositoriesViewController(_ controller: RepositoriesViewController, didSelect repository: GitHubMinimalRepository) {
+    func repositoriesViewController(_ controller: RepositoriesViewController, didSelect repository: GitHubMinimalRepository, currentStarCount: Int) {
         let viewController = RepositoryViewController(
             minimalRepository: repository,
+            currentStarCount: currentStarCount,
             gitHubAPI: makeGitHubAPI()
         )
         navigationController?.pushViewController(viewController, animated: true)
