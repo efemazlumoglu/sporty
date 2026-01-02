@@ -8,6 +8,7 @@ final class AppCoordinator {
     private let mockLiveServer: MockLiveServer
     
     private var navigationController: UINavigationController?
+    private var repositoriesViewModel: RepositoriesViewModel?
 
     init(window: UIWindow) {
         self.window = window
@@ -15,10 +16,10 @@ final class AppCoordinator {
     }
 
     func start() {
-        let repositoriesVC = RepositoriesViewController(
-            gitHubAPI: makeGitHubAPI(),
-            mockLiveServer: mockLiveServer
-        )
+        let viewModel = RepositoriesViewModel(gitHubAPI: makeGitHubAPI())
+        repositoriesViewModel = viewModel
+        
+        let repositoriesVC = RepositoriesViewController(viewModel: viewModel)
         repositoriesVC.delegate = self
         
         let navigationController = UINavigationController(rootViewController: repositoriesVC)
@@ -40,13 +41,21 @@ extension AppCoordinator: RepositoriesViewControllerDelegate {
         let nav = UINavigationController(rootViewController: settingsVC)
         navigationController?.present(nav, animated: true)
     }
+    
+    func repositoriesViewController(_ controller: RepositoriesViewController, didSelect repository: GitHubMinimalRepository) {
+        let viewController = RepositoryViewController(
+            minimalRepository: repository,
+            gitHubAPI: makeGitHubAPI()
+        )
+        navigationController?.pushViewController(viewController, animated: true)
+    }
 }
 
 extension AppCoordinator: SettingsViewControllerDelegate {
     func settingsViewControllerDidUpdateToken(_ controller: SettingsViewController) {
-        guard let repositoriesVC = navigationController?.viewControllers.first as? RepositoriesViewController else {
-            return
+        repositoriesViewModel?.updateGitHubAPI(makeGitHubAPI())
+        Task {
+            await repositoriesViewModel?.loadRepositories()
         }
-        repositoriesVC.updateGitHubAPI(makeGitHubAPI())
     }
 }
