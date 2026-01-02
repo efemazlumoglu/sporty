@@ -14,6 +14,17 @@ final class RepositoriesViewController: UITableViewController {
     private var gitHubAPI: GitHubAPI
     private let mockLiveServer: MockLiveServer
     private var repositories: [GitHubMinimalRepository] = []
+    private var currentOrganisation: String = "swiftlang"
+    private var isLoading = false
+    
+    private lazy var searchController: UISearchController = {
+        let controller = UISearchController(searchResultsController: nil)
+        controller.searchBar.placeholder = "Enter organisation or username"
+        controller.searchBar.delegate = self
+        controller.obscuresBackgroundDuringPresentation = false
+        controller.hidesNavigationBarDuringPresentation = false
+        return controller
+    }()
 
     init(gitHubAPI: GitHubAPI, mockLiveServer: MockLiveServer) {
         self.gitHubAPI = gitHubAPI
@@ -21,7 +32,7 @@ final class RepositoriesViewController: UITableViewController {
 
         super.init(style: .insetGrouped)
 
-        title = "swiftlang"
+        title = currentOrganisation
     }
 
     @available(*, unavailable)
@@ -32,6 +43,9 @@ final class RepositoriesViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        navigationItem.searchController = searchController
+        navigationItem.hidesSearchBarWhenScrolling = false
+        
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             image: UIImage(systemName: "gearshape"),
             style: .plain,
@@ -82,15 +96,60 @@ final class RepositoriesViewController: UITableViewController {
     }
 
     private func loadRepositories() async {
+        guard !isLoading else { return }
+        isLoading = true
+        
         do {
-            repositories = try await gitHubAPI.repositoriesForOrganisation("swiftlang")
+            repositories = try await gitHubAPI.repositoriesForOrganisation(currentOrganisation)
             tableView.reloadData()
         } catch {
-            print("Error loading repositories: \(error)")
+            repositories = []
+            tableView.reloadData()
+            showError(error)
+        }
+        
+        isLoading = false
+    }
+    
+    private func showError(_ error: Error) {
+        let failedOrganisation = currentOrganisation
+        let alert = UIAlertController(
+            title: "Error",
+            message: "Could not load repositories for \"\(failedOrganisation)\"",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+            self?.resetToDefault()
+        })
+        present(alert, animated: true)
+    }
+    
+    private func resetToDefault() {
+        currentOrganisation = "swiftlang"
+        title = currentOrganisation
+        Task {
+            await loadRepositories()
         }
     }
     
     @objc private func settingsTapped() {
         delegate?.repositoriesViewControllerDidRequestSettings(self)
+    }
+}
+
+extension RepositoriesViewController: UISearchBarDelegate {
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        guard let text = searchBar.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty else {
+            return
+        }
+        
+        currentOrganisation = text
+        title = text
+        searchController.isActive = false
+        
+        Task {
+            await loadRepositories()
+        }
     }
 }
